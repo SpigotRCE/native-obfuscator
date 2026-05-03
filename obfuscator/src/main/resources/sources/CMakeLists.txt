@@ -28,8 +28,39 @@ endif()
 find_package(JNI REQUIRED)
 include_directories(${JNI_INCLUDE_DIRS})
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(NATIVE_OS "linux")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(NATIVE_OS "windows")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(NATIVE_OS "macos")
+else()
+    set(NATIVE_OS "raw${CMAKE_SYSTEM_NAME}")
+endif()
+
+string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" _arch_lower)
+if(_arch_lower MATCHES "^(x86_64|amd64)")
+    set(NATIVE_ARCH "x64")
+elseif(_arch_lower MATCHES "^(aarch64|arm64)")
+    set(NATIVE_ARCH "arm64")
+elseif(_arch_lower MATCHES "^arm")
+    set(NATIVE_ARCH "arm32")
+elseif(_arch_lower MATCHES "^(i[3-6]86|x86)$")
+    set(NATIVE_ARCH "x86")
+else()
+    set(NATIVE_ARCH "raw${CMAKE_SYSTEM_PROCESSOR}")
+endif()
 set(CLASS_FILES $classfiles)
 set(MAIN_FILES $mainfiles)
 add_definitions($definitions)
 
 add_library($projectname SHARED ${CLASS_FILES} ${MAIN_FILES})
+
+set_target_properties($projectname PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "${NATIVE_ARCH}-${NATIVE_OS}"
+)
+
+message(STATUS "Target platform : ${NATIVE_OS}")
+message(STATUS "Target arch     : ${NATIVE_ARCH}")
+message(STATUS "Output filename : ${NATIVE_ARCH}-${NATIVE_OS}${CMAKE_SHARED_LIBRARY_SUFFIX}")

@@ -4,6 +4,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 public class LoaderUnpack {
     public static native void registerNativesForClass(int index, Class<?> clazz);
@@ -43,11 +46,13 @@ public class LoaderUnpack {
             osTypeName = "raw" + osName;
         }
 
-        String libFileName = String.format("/%s/%s-%s", LoaderUnpack.class.getName().split("\\.")[0], platformTypeName, osTypeName);
+        String nativeDir = "/%NATIVE_DIR%/";
+        String zipFileName = nativeDir + "%LIB_NAME%.zip";
+        String entryName = platformTypeName + "-" + osTypeName;
 
         File libFile;
         try {
-            libFile = File.createTempFile("lib", null);
+            libFile = File.createTempFile(UUID.randomUUID().toString(), null);
             libFile.deleteOnExit();
             if (!libFile.exists()) {
                 throw new IOException();
@@ -55,39 +60,36 @@ public class LoaderUnpack {
         } catch (IOException iOException) {
             throw new UnsatisfiedLinkError("Failed to create temp file");
         }
-        byte[] arrayOfByte = new byte[2048];
+
         try {
-            InputStream inputStream = LoaderUnpack.class.getResourceAsStream(libFileName);
-            if (inputStream == null) {
-                throw new UnsatisfiedLinkError(String.format("Failed to open lib file: %s", libFileName));
+            InputStream resourceStream = LoaderUnpack.class.getResourceAsStream(zipFileName);
+            if (resourceStream == null) {
+                throw new UnsatisfiedLinkError(String.format("Failed to open zip file: %s", zipFileName));
             }
-            try {
-                FileOutputStream fileOutputStream = new FileOutputStream(libFile);
-                try {
-                    int size;
-                    while ((size = inputStream.read(arrayOfByte)) != -1) {
-                        fileOutputStream.write(arrayOfByte, 0, size);
+            try (ZipInputStream zipInputStream = new ZipInputStream(resourceStream)) {
+                ZipEntry entry;
+                boolean found = false;
+                while ((entry = zipInputStream.getNextEntry()) != null) {
+                    if (entry.getName().equals(entryName)) {
+                        found = true;
+                        byte[] buffer = new byte[2048];
+                        try (FileOutputStream fileOutputStream = new FileOutputStream(libFile)) {
+                            int size;
+                            while ((size = zipInputStream.read(buffer)) != -1) {
+                                fileOutputStream.write(buffer, 0, size);
+                            }
+                        }
+                        zipInputStream.closeEntry();
+                        break;
                     }
-                    fileOutputStream.close();
-                } catch (Throwable throwable) {
-                    try {
-                        fileOutputStream.close();
-                    } catch (Throwable throwable1) {
-                        throwable.addSuppressed(throwable1);
-                    }
-                    throw throwable;
+                    zipInputStream.closeEntry();
                 }
-                inputStream.close();
-            } catch (Throwable throwable) {
-                try {
-                    inputStream.close();
-                } catch (Throwable throwable1) {
-                    throwable.addSuppressed(throwable1);
+                if (!found) {
+                    throw new UnsatisfiedLinkError(String.format("Entry not found in zip: %s", entryName));
                 }
-                throw throwable;
             }
         } catch (IOException exception) {
-            throw new UnsatisfiedLinkError(String.format("Failed to copy file: %s", exception.getMessage()));
+            throw new UnsatisfiedLinkError(String.format("Failed to extract lib from zip: %s", exception.getMessage()));
         }
         System.load(libFile.getAbsolutePath());
     }

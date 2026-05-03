@@ -23,10 +23,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import java.util.stream.Collectors;
@@ -366,7 +363,25 @@ public class NativeObfuscator {
                 loaderClass = new ClassNode(Opcodes.ASM9);
                 loaderClassReader.accept(loaderClass, 0);
                 loaderClass.sourceFile = "synthetic";
-                System.out.println("/" + nativeDir + "/");
+                String libName = UUID.randomUUID().toString();
+                loaderClass.methods.forEach(method -> {
+                    for (int i = 0; i < method.instructions.size(); i++) {
+                        AbstractInsnNode insnNode = method.instructions.get(i);
+                        if (insnNode instanceof LdcInsnNode && ((LdcInsnNode) insnNode).cst instanceof String &&
+                            ((LdcInsnNode) insnNode).cst.equals("%LIB_NAME%.zip")) {
+                            ((LdcInsnNode) insnNode).cst = libName + ".zip";
+                        }
+
+                        if (insnNode instanceof LdcInsnNode && ((LdcInsnNode) insnNode).cst instanceof String &&
+                            ((LdcInsnNode) insnNode).cst.equals("/%NATIVE_DIR%/")) {
+                            ((LdcInsnNode) insnNode).cst = "/" + nativeDir + "/";
+                        }
+                    }
+                });
+                System.out.println("┌─ Output Info ────────────────────────────────────────────────────");
+                System.out.println("│  Native dir      : /" + nativeDir + "/");
+                System.out.println("│  Library ZIP     : " + libName + ".zip");
+                System.out.println("└──────────────────────────────────────────────────────────────────");
             } else {
                 ClassReader loaderClassReader = new ClassReader(Objects.requireNonNull(NativeObfuscator.class
                         .getResourceAsStream("compiletime/LoaderPlain.class")));
