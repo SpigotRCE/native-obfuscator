@@ -2,10 +2,7 @@ package by.radioegor146.bytecode;
 
 import by.radioegor146.Platform;
 import by.radioegor146.Util;
-import org.objectweb.asm.Handle;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
+import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
 
 import java.util.Arrays;
@@ -130,6 +127,8 @@ public class IndyPreprocessor implements Preprocessor {
                     } else if (bsmArgument instanceof Double) {
                         bootstrapInstructions.add(new LdcInsnNode(bsmArgument)); // 6
                         bootstrapInstructions.add(getBoxingInsnNode(Type.DOUBLE_TYPE));
+                    } else if (bsmArgument instanceof ConstantDynamic) {
+                        bootstrapInstructions.add(generateCondyResolutionInsns((ConstantDynamic) bsmArgument));
                     } else if (bsmArgument instanceof Handle) {
                         bootstrapInstructions.add(MethodHandleUtils.generateMethodHandleLdcInsn((Handle) bsmArgument));
                     } else if (bsmArgument instanceof Object[]) {
@@ -161,6 +160,8 @@ public class IndyPreprocessor implements Preprocessor {
                             } else if (object instanceof Double) {
                                 bootstrapInstructions.add(new LdcInsnNode(object));
                                 bootstrapInstructions.add(getBoxingInsnNode(Type.DOUBLE_TYPE));
+                            } else if (object instanceof ConstantDynamic) {
+                                bootstrapInstructions.add(generateCondyResolutionInsns((ConstantDynamic) object));
                             } else if (object instanceof Handle) {
                                 bootstrapInstructions.add(MethodHandleUtils.generateMethodHandleLdcInsn((Handle) object));
                             } else {
@@ -220,6 +221,8 @@ public class IndyPreprocessor implements Preprocessor {
                     } else if (bsmArgument instanceof Double) {
                         bootstrapInstructions.add(new LdcInsnNode(bsmArgument)); // 6
                         bootstrapInstructions.add(getBoxingInsnNode(Type.DOUBLE_TYPE));
+                    } else if (bsmArgument instanceof ConstantDynamic) {
+                        bootstrapInstructions.add(generateCondyResolutionInsns((ConstantDynamic) bsmArgument));
                     } else if (bsmArgument instanceof Handle) {
                         bootstrapInstructions.add(MethodHandleUtils.generateMethodHandleLdcInsn((Handle) bsmArgument));
                     } else {
@@ -369,6 +372,71 @@ public class IndyPreprocessor implements Preprocessor {
                 throw new RuntimeException(String.format("Failed to unbox %s", argument));
         }
         return result;
+    }
+
+    private static InsnList generateCondyResolutionInsns(ConstantDynamic cd) {
+        InsnList il = new InsnList();
+        Handle bsm = cd.getBootstrapMethod();
+        Type[] bsmParams = Type.getArgumentTypes(bsm.getDesc());
+        Type resultType = Type.getType(cd.getDescriptor());
+
+        il.add(PreprocessorUtils.LOOKUP_LOCAL.get());
+        il.add(new LdcInsnNode(cd.getName()));
+        il.add(new LdcInsnNode(resultType));
+
+        for (int i = 0; i < cd.getBootstrapMethodArgumentCount(); i++) {
+            Object arg = cd.getBootstrapMethodArgument(i);
+            Type param = bsmParams[3 + i];
+            emitCondyStaticArg(il, arg, param);
+        }
+
+        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
+                bsm.getOwner(), bsm.getName(), bsm.getDesc()));
+
+        if (resultType.getSort() == Type.OBJECT) {
+            il.add(new TypeInsnNode(Opcodes.CHECKCAST, resultType.getInternalName()));
+        } else if (resultType.getSort() == Type.ARRAY) {
+            il.add(new TypeInsnNode(Opcodes.CHECKCAST, resultType.getDescriptor()));
+        }
+
+        return il;
+    }
+
+    private static void emitCondyStaticArg(InsnList il, Object arg, Type param) {
+        if (arg instanceof String) {
+            il.add(new LdcInsnNode(arg));
+        } else if (arg instanceof Type) {
+            Type t = (Type) arg;
+            if (t.getSort() == Type.METHOD) {
+                il.add(MethodHandleUtils.generateMethodTypeLdcInsn(t));
+            } else {
+                il.add(new LdcInsnNode(t));
+            }
+        } else if (arg instanceof Handle) {
+            il.add(MethodHandleUtils.generateMethodHandleLdcInsn((Handle) arg));
+        } else if (arg instanceof Integer) {
+            il.add(new LdcInsnNode(arg));  // pushes int primitive
+            if (param.getSort() == Type.OBJECT) il.add(getBoxingInsnNode(Type.INT_TYPE));
+        } else if (arg instanceof Long) {
+            il.add(new LdcInsnNode(arg));
+            if (param.getSort() == Type.OBJECT) il.add(getBoxingInsnNode(Type.LONG_TYPE));
+        } else if (arg instanceof Float) {
+            il.add(new LdcInsnNode(arg));
+            if (param.getSort() == Type.OBJECT) il.add(getBoxingInsnNode(Type.FLOAT_TYPE));
+        } else if (arg instanceof Double) {
+            il.add(new LdcInsnNode(arg));
+            if (param.getSort() == Type.OBJECT) il.add(getBoxingInsnNode(Type.DOUBLE_TYPE));
+        } else if (arg instanceof ConstantDynamic) {
+            // Nested condy - resolve recursively, then box if the outer param expects Object
+            il.add(generateCondyResolutionInsns((ConstantDynamic) arg));
+            Type innerResult = Type.getType(((ConstantDynamic) arg).getDescriptor());
+            if (param.getSort() == Type.OBJECT && innerResult.getSort() != Type.OBJECT
+                    && innerResult.getSort() != Type.ARRAY) {
+                il.add(getBoxingInsnNode(innerResult));
+            }
+        } else {
+            throw new RuntimeException("Unsupported condy static arg type: " + arg.getClass());
+        }
     }
 
     @Override
