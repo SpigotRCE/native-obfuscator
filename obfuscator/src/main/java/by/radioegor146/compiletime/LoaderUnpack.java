@@ -1,15 +1,61 @@
 package by.radioegor146.compiletime;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.Mac;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class LoaderUnpack {
     public static native void registerNativesForClass(int index, Class<?> clazz);
+
+    private static byte[] hkdfExpand(byte[] key, String info, int length) throws Exception {
+        String MAC_ALGO = "HmacSHA256";
+        Mac mac = Mac.getInstance(MAC_ALGO);
+        mac.init(new SecretKeySpec(key, MAC_ALGO));
+
+        byte[] result = new byte[length];
+        byte[] t = new byte[0];
+        int pos = 0;
+        int counter = 1;
+
+        while (pos < length) {
+            mac.reset();
+            mac.update(t);
+            mac.update(info.getBytes(StandardCharsets.UTF_8));
+            mac.update((byte) counter);
+
+            t = mac.doFinal();
+
+            int copy = Math.min(t.length, length - pos);
+            System.arraycopy(t, 0, result, pos, copy);
+            pos += copy;
+            counter++;
+        }
+
+        return result;
+    }
+
+    private static InputStream decryptStream(InputStream encryptedStream) {
+        try {
+            byte[] encryptedBytes = encryptedStream.readAllBytes();
+
+            byte[] masterKey = "%MASTER_KEY%".getBytes(StandardCharsets.ISO_8859_1);
+            SecretKeySpec keySpec = new SecretKeySpec(hkdfExpand(masterKey, "aes-key", 16), "AES");
+            IvParameterSpec ivSpec = new IvParameterSpec(hkdfExpand(masterKey, "aes-iv", 16));
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+            return new ByteArrayInputStream(decryptedBytes);
+        } catch (Exception e) {
+            throw new UnsatisfiedLinkError("Failed to initialize decryption: " + e.getMessage());
+        }
+    }
 
     static {
         String osName = System.getProperty("os.name").toLowerCase();
@@ -66,7 +112,7 @@ public class LoaderUnpack {
             if (resourceStream == null) {
                 throw new UnsatisfiedLinkError(String.format("Failed to open zip file: %s", zipFileName));
             }
-            try (ZipInputStream zipInputStream = new ZipInputStream(resourceStream)) {
+            try (ZipInputStream zipInputStream = new ZipInputStream(decryptStream(resourceStream))) {
                 ZipEntry entry;
                 boolean found = false;
                 while ((entry = zipInputStream.getNextEntry()) != null) {

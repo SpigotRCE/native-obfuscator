@@ -23,6 +23,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.SecureRandom;
 import java.util.*;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -364,6 +365,8 @@ public class NativeObfuscator {
                 loaderClassReader.accept(loaderClass, 0);
                 loaderClass.sourceFile = "synthetic";
                 String libName = UUID.randomUUID().toString();
+                byte[] key = new byte[32];
+                new SecureRandom().nextBytes(key);
                 loaderClass.methods.forEach(method -> {
                     for (int i = 0; i < method.instructions.size(); i++) {
                         AbstractInsnNode insnNode = method.instructions.get(i);
@@ -376,11 +379,17 @@ public class NativeObfuscator {
                             ((LdcInsnNode) insnNode).cst.equals("/%NATIVE_DIR%/")) {
                             ((LdcInsnNode) insnNode).cst = "/" + nativeDir + "/";
                         }
+
+                        if (insnNode instanceof LdcInsnNode && ((LdcInsnNode) insnNode).cst instanceof String &&
+                            ((LdcInsnNode) insnNode).cst.equals("%MASTER_KEY%")) {
+                            ((LdcInsnNode) insnNode).cst = new String(key, StandardCharsets.ISO_8859_1);
+                        }
                     }
                 });
                 System.out.println("┌─ Output Info ────────────────────────────────────────────────────");
                 System.out.println("│  Native dir      : /" + nativeDir + "/");
                 System.out.println("│  Library ZIP     : " + libName + ".zip");
+                System.out.println("│  Master Key      : " + Base64.getEncoder().encodeToString(key));
                 System.out.println("└──────────────────────────────────────────────────────────────────");
             } else {
                 ClassReader loaderClassReader = new ClassReader(Objects.requireNonNull(NativeObfuscator.class
