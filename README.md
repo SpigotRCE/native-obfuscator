@@ -147,7 +147,7 @@ to the directory of the .jar file that this tool will print in `stdout` (by defa
 2. Run `cmake .` in the result `cpp` directory
 3. Add changes to .cpp code if necessary
 4. Run `cmake --build . --config Release` in result `cpp` directory to build .so/.dll file
-5. Copy result .dll/.so from `build/libs/` to the path specified in the previous paragraph.
+5. Run `python package_natives.py` in the output directory to encrypt the built libraries and embed them into the generated jar (this helper already contains the native directory, zip name and master key). If you used `--plain-lib-name`, copy the library next to the jar and load it with `-Djava.library.path` instead.
 6. Run created .jar `java -jar <output jar>` and enjoy!
 
 ---
@@ -212,6 +212,38 @@ done
 `cmake --build --preset <name>` requires the matching configure preset to have
 run at least once (`cmake --preset <name>`). The resulting libraries are
 collected in `cpp/build/zig-libs/`, regardless of which target was built.
+
+### Packaging the libraries into the jar
+
+For the default loader (`LoaderUnpack`), the tool generates a helper named
+`package_natives.py` next to the output jar. It already contains the native
+directory, zip name and master key for that jar, so packaging is a single
+command:
+
+```bash
+cd <output directory>
+python package_natives.py
+```
+
+It scans the output directory recursively for libraries named like
+`x64-windows.dll`, `x64-linux.so`, `arm64-macos.dylib`, packs the newest copy of
+each, encrypts the archive and inserts it into the output jar.
+
+If the libraries live elsewhere, or there are several jars in the directory:
+
+```bash
+python package_natives.py --libs-dir path/to/zig-libs --jar path/to/app.jar
+```
+
+The helper needs AES support, provided by either `cryptography` or
+`pycryptodome`:
+
+```bash
+pip install cryptography
+```
+
+Keep `package_natives.py` out of distributed archives: it contains the master
+key.
 
 Manual toolchain use (without presets):
 

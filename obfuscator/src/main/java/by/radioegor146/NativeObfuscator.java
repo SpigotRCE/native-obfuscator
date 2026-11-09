@@ -399,6 +399,17 @@ public class NativeObfuscator {
                 System.out.println("│  Library ZIP     : " + libName + ".zip");
                 System.out.println("│  Master Key      : " + Base64.getEncoder().encodeToString(key));
                 System.out.println("└──────────────────────────────────────────────────────────────────");
+
+                // Generate a ready-to-run packaging helper next to the output jar.
+                String packageScript = Util.dynamicFormat(Util.readResource("sources/package_natives.py"),
+                        Util.createMap(
+                                "native_dir", nativeDir,
+                                "zip_name", libName + ".zip",
+                                "master_key", Base64.getEncoder().encodeToString(key),
+                                "jar_name", jarFile.getName()
+                        ));
+                Files.write(outputDir.resolve("package_natives.py"),
+                        packageScript.getBytes(StandardCharsets.UTF_8));
             } else {
                 ClassReader loaderClassReader = new ClassReader(Objects.requireNonNull(NativeObfuscator.class
                         .getResourceAsStream("compiletime/LoaderPlain.class")));
