@@ -50,15 +50,16 @@ public class LoaderUnpack {
         String zipFileName = nativeDir + "%LIB_NAME%.zip";
         String entryName = platformTypeName + "-" + osTypeName;
 
+        String name = "native-transpiler-" + UUID.randomUUID();
         File libFile;
         try {
-            libFile = File.createTempFile(UUID.randomUUID().toString(), null);
+            libFile = File.createTempFile(name, null);
             libFile.deleteOnExit();
             if (!libFile.exists()) {
                 throw new IOException();
             }
         } catch (IOException iOException) {
-            throw new UnsatisfiedLinkError("Failed to create temp file");
+            throw new RuntimeException("Failed to create temp file: " + name, iOException);
         }
 
         try {
