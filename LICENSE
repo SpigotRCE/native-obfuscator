@@ -672,3 +672,20 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+---
+
+Output Exception
+
+As a special exception, the copyright holders of native-obfuscator give
+unlimited permission to link, embed, compile and distribute the runtime code
+emitted by this tool -- including the native runtime (native_jvm), the loader,
+and the generated code fragments -- into your own programs, under terms of your
+choice, notwithstanding GPL-3.0 section 5(c).
+
+This exception applies only to the code emitted by the tool. The tool itself
+remains licensed under GPL-3.0 in full, without modification.
+
+A modified version of the tool may carry this exception only if the
+modification does not alter the emitted runtime code, or if the modified
+runtime carries the same exception.

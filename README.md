@@ -168,6 +168,19 @@ This tool uses tests from [huzpsb/JavaObfuscatorTest](https://github.com/huzpsb/
 
 In case of any problems, feel free to open an issue or contact me at [re146.dev](https://re146.dev)
 
+### Licensing
+
+The tool itself is licensed under [GPL-3.0](LICENSE).
+
+**Output exception:** the runtime files emitted by the tool into your output
+directory -- `native_jvm.*`, `string_pool.hpp`, the generated Loader class,
+and all code fragments from `cppsnippets.properties` -- may be linked,
+embedded, compiled, and distributed in your own programs under terms of your
+choice, regardless of GPL-3.0 section 5(c). See the Output Exception in
+[LICENSE](LICENSE) for the full terms.
+
+---
+
 ### Stargazers over time
 
 [![Stargazers over time](https://starchart.cc/radioegor146/native-obfuscator.svg?variant=adaptive)](https://starchart.cc/radioegor146/native-obfuscator)
