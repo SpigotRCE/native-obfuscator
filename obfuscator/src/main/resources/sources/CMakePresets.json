@@ -1,0 +1,98 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "zig-base",
+      "hidden": true,
+      "description": "Cross-compile the generated native library with Zig",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/zig/${presetName}",
+      "toolchainFile": "${sourceDir}/zig-toolchain.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/zig-libs",
+        "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/zig-libs",
+        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/zig-libs"
+      }
+    },
+    {
+      "name": "zig-x64-linux",
+      "displayName": "Zig x86_64 Linux (glibc)",
+      "inherits": "zig-base",
+      "cacheVariables": {
+        "ZIG_TARGET": "x86_64-linux-gnu"
+      }
+    },
+    {
+      "name": "zig-arm64-linux",
+      "displayName": "Zig aarch64 Linux (glibc)",
+      "inherits": "zig-base",
+      "cacheVariables": {
+        "ZIG_TARGET": "aarch64-linux-gnu"
+      }
+    },
+    {
+      "name": "zig-x64-windows",
+      "displayName": "Zig x86_64 Windows (mingw)",
+      "inherits": "zig-base",
+      "cacheVariables": {
+        "ZIG_TARGET": "x86_64-windows-gnu"
+      }
+    },
+    {
+      "name": "zig-arm64-windows",
+      "displayName": "Zig aarch64 Windows (mingw)",
+      "inherits": "zig-base",
+      "cacheVariables": {
+        "ZIG_TARGET": "aarch64-windows-gnu"
+      }
+    },
+    {
+      "name": "zig-x64-macos",
+      "displayName": "Zig x86_64 macOS",
+      "inherits": "zig-base",
+      "cacheVariables": {
+        "ZIG_TARGET": "x86_64-macos"
+      }
+    },
+    {
+      "name": "zig-arm64-macos",
+      "displayName": "Zig aarch64 macOS",
+      "inherits": "zig-base",
+      "cacheVariables": {
+        "ZIG_TARGET": "aarch64-macos"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "zig-x64-linux",
+      "configurePreset": "zig-x64-linux"
+    },
+    {
+      "name": "zig-arm64-linux",
+      "configurePreset": "zig-arm64-linux"
+    },
+    {
+      "name": "zig-x64-windows",
+      "configurePreset": "zig-x64-windows"
+    },
+    {
+      "name": "zig-arm64-windows",
+      "configurePreset": "zig-arm64-windows"
+    },
+    {
+      "name": "zig-x64-macos",
+      "configurePreset": "zig-x64-macos"
+    },
+    {
+      "name": "zig-arm64-macos",
+      "configurePreset": "zig-arm64-macos"
+    }
+  ]
+}

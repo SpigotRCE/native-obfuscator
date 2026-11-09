@@ -119,6 +119,14 @@ public class NativeObfuscator {
         Util.copyResource("sources/native_jvm_output.hpp", cppDir);
         Util.copyResource("sources/string_pool.hpp", cppDir);
 
+        Util.copyResource("sources/zig-toolchain.cmake", cppDir);
+        Util.copyResource("sources/CMakePresets.json", cppDir);
+        for (String targetOs : new String[]{"linux", "windows", "macos"}) {
+            Path zigJniDir = cppDir.resolve("zig-jni").resolve(targetOs);
+            Files.createDirectories(zigJniDir);
+            Util.copyResource("sources/zig-jni/" + targetOs + "/jni_md.h", zigJniDir);
+        }
+
         String projectName = "native_library";
 
         CMakeFilesBuilder cMakeBuilder = new CMakeFilesBuilder(projectName);

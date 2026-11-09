@@ -152,6 +152,93 @@ to the directory of the .jar file that this tool will print in `stdout` (by defa
 
 ---
 
+### Cross-compiling with Zig (optional)
+
+A project generated on one operating system can be compiled for other
+operating systems and architectures with [Zig](https://ziglang.org/). Zig
+bundles libc headers, compiler-rt and linkers for all supported targets, so no
+extra cross toolchain or target SDK is required.
+
+Every generated `cpp` directory contains:
+
+- `zig-toolchain.cmake` - CMake toolchain that drives `zig cc` / `zig c++`
+- `CMakePresets.json` - ready to use Ninja presets for all supported targets
+- `zig-jni/<os>/jni_md.h` - target-specific JNI definitions
+
+The host JDK still provides the platform-independent `jni.h`; the generated
+`zig-jni` headers override the host-specific `jni_md.h` for the target.
+
+Requirements:
+
+1. [Zig](https://ziglang.org/download/) available in `PATH`, or passed with
+   `-DZIG_EXECUTABLE=/path/to/zig`
+2. [Ninja](https://ninja-build.org/) available in `PATH` (Visual Studio and
+   Xcode generators cannot be combined with Zig cross-compilation)
+3. A JDK. Set `JAVA_HOME`, or pass
+   `-DNATIVE_OBFUSCATOR_JNI_INCLUDE_DIR=<jdk>/include`. Point it at the
+   `include` directory, not at `include/win32`, `include/linux`, etc.
+4. CMake 3.21 or newer for presets (the toolchain itself also works with the
+   older CMake used by the regular build)
+
+Supported targets:
+
+| Preset | Output |
+| --- | --- |
+| `zig-x64-linux` | `x64-linux.so` |
+| `zig-arm64-linux` | `arm64-linux.so` |
+| `zig-x64-windows` | `x64-windows.dll` |
+| `zig-arm64-windows` | `arm64-windows.dll` |
+| `zig-x64-macos` | `x64-macos.dylib` |
+| `zig-arm64-macos` | `arm64-macos.dylib` |
+
+Build one target:
+
+```bash
+cd <output directory>/cpp
+cmake --preset zig-x64-linux
+cmake --build --preset zig-x64-linux
+```
+
+Build every target:
+
+```bash
+for preset in zig-x64-linux zig-arm64-linux zig-x64-windows \
+              zig-arm64-windows zig-x64-macos zig-arm64-macos; do
+    cmake --preset "$preset"
+    cmake --build --preset "$preset"
+done
+```
+
+`cmake --build --preset <name>` requires the matching configure preset to have
+run at least once (`cmake --preset <name>`). The resulting libraries are
+collected in `cpp/build/zig-libs/`, regardless of which target was built.
+
+Manual toolchain use (without presets):
+
+```bash
+cmake -S . -B build/zig/custom -G Ninja \
+      -DCMAKE_TOOLCHAIN_FILE=zig-toolchain.cmake \
+      -DZIG_TARGET=x86_64-linux-gnu \
+      -DCMAKE_BUILD_TYPE=Release
+cmake --build build/zig/custom
+```
+
+Notes:
+
+- If `zig` or `ninja` is not on `PATH`, pass their full paths explicitly:
+  `cmake --preset zig-x64-linux -DZIG_EXECUTABLE=C:\zig\zig.exe -DCMAKE_MAKE_PROGRAM=C:\ninja\ninja.exe`.
+  When editing `PATH`, add the **directory** containing the executable, not
+  the executable itself.
+- Only 64-bit Windows targets are provided. Modern `jni.h` hardcodes an empty
+  `JNICALL`, which conflicts with the `__stdcall` convention required by 32-bit
+  Windows JNI.
+- The normal native build (`cmake .` in the `cpp` directory) is unchanged and
+  does not use Zig.
+- The generated files can be edited; the Zig files are only used when a Zig
+  target or the toolchain file is selected.
+
+---
+
 ### Building the tool by yourself
 1. Run `gradlew assemble` to force gradle not to run tests after the build
 
